@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Attendance - Face Recognition</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            background: #f1f5f9;
+        }
+
+        nav {
+            background: #1e3a8a;
+            padding: 18px 30px;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin-right: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 20px;
+        }
+
+        .camera-box {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,.08);
+        }
+
+        video {
+            width: 100%;
+            max-width: 700px;
+            border-radius: 10px;
+            background: black;
+        }
+
+        button {
+            margin: 10px 5px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 7px;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+        }
+
+        button.stop {
+            background: #dc2626;
+        }
+
+        #status {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        #results {
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .result {
+            background: #f8fafc;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<nav>
+
+    <a href="/">Dashboard</a>
+    <a href="/students">Students</a>
+    <a href="/attendance">Attendance</a>
+    <a href="/reports">Reports</a>
+
+</nav>
+
+
+<div class="container">
+
+    <h1> 📸  Face Recognition Attendance </h1>
+
+    <div class="camera-box">
+
+        <video id="video" autoplay playsinline></video>
+
+        <br>
+
+        <button onclick="startCamera()">
+            Start Camera
+        </button>
+
+        <button onclick="recognizeFace()">
+              Recognize Face
+        </button>
+
+        <button class="stop" onclick="stopCamera()">
+            Stop Camera
+        </button>
+
+        <canvas id="canvas" style="display:none;"></canvas>
+
+        <div id="status">
+            Camera not started.
+        </div>
+
+        <div id="results"></div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+let stream = null;
+
+
+async function startCamera() {
+
+    try {
+
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+        });
+
+        document.getElementById("video").srcObject = stream;
+
+        document.getElementById("status").innerText =
+            "Camera started. Look at the camera.";
+
+    } catch (error) {
+
+        document.getElementById("status").innerText =
+            "Camera access denied or unavailable.";
+
+        console.error(error);
+
+    }
+
+}
+
+
+function stopCamera() {
+
+    if (stream) {
+
+        stream.getTracks().forEach(track => track.stop());
+
+        stream = null;
+
+    }
+
+    document.getElementById("video").srcObject = null;
+
+    document.getElementById("status").innerText =
+        "Camera stopped.";
+
+}
+
+
+async function recognizeFace() {
+
+    if (!stream) {
+
+        alert("Please start the camera first.");
+
+        return;
+
+    }
+
+    const video = document.getElementById("video");
+
+    const canvas = document.getElementById("canvas");
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const context = canvas.getContext("2d");
+
+    context.drawImage(
+        video,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    const image = canvas.toDataURL("image/jpeg", 0.8);
+
+    document.getElementById("status").innerText =
+        "Recognizing face...";
+
+
+    try {
+
+        const response = await fetch("/api/recognize", {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                image: image
+            })
+
+        });
+
+
+        const data = await response.json();
+
+        const results = document.getElementById("results");
+
+        results.innerHTML = "";
+
+
+        if (!response.ok) {
+
+            document.getElementById("status").innerText =
+                data.error || "Recognition failed.";
+
+            return;
+
+        }
+
+
+        if (!data.faces || data.faces.length === 0) {
+
+            document.getElementById("status").innerText =
+                "No face detected.";
+
+            return;
+
+        }
+
+
+        data.faces.forEach(face => {
+
+            const div = document.createElement("div");
+
+            div.className = "result";
+
+
+            if (face.student) {
+
+                div.innerHTML = `
+                    <strong>Student:</strong>
+                    ${face.student.full_name}
+                    <br>
+
+                    <strong>ID:</strong>
+                    ${face.student.student_code}
+                    <br>
+
+                    <strong>Confidence:</strong>
+                    ${face.confidence}
+                    <br>
+
+                    <strong>Attendance:</strong>
+                    ${face.marked
+                        ? "✅ Marked Present"
+                        : "Already marked today"}
+                `;
+
+            } else {
+
+                div.innerHTML = `
+                    ❌ Unknown face
+                    <br>
+                    Confidence: ${face.confidence}
+                `;
+
+            }
+
+            results.appendChild(div);
+
+        });
+
+
+        document.getElementById("status").innerText =
+            "Recognition completed.";
+
+    } catch (error) {
+
+        console.error(error);
+
+        document.getElementById("status").innerText =
+            "Server error during recognition.";
+
+    }
+
+}
+
+</script>
+
+</body>
+</html>

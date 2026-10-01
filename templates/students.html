@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <title>Students - Face Attendance</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            background: #f1f5f9;
+        }
+
+        nav {
+            background: #1e3a8a;
+            color: white;
+            padding: 18px 30px;
+        }
+
+        nav a {
+            color: white;
+            margin-right: 20px;
+            text-decoration: none;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 20px;
+        }
+
+        .box {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,.08);
+        }
+
+        input {
+            padding: 11px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            margin: 5px;
+        }
+
+        button {
+            padding: 11px 18px;
+            border: none;
+            border-radius: 7px;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 13px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+        }
+
+        th {
+            background: #eff6ff;
+        }
+
+        .active {
+            color: #16a34a;
+            font-weight: bold;
+        }
+
+        .inactive {
+            color: #dc2626;
+            font-weight: bold;
+        }
+
+        #message {
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<nav>
+
+    <a href="/">Dashboard</a>
+    <a href="/students">Students</a>
+    <a href="/attendance">Attendance</a>
+    <a href="/reports">Reports</a>
+
+</nav>
+
+
+<div class="container">
+
+    <h1>👨‍🎓 Student Management</h1>
+
+
+    <div class="box">
+
+        <h2>Add Student</h2>
+
+        <form id="studentForm">
+
+            <input
+                type="text"
+                id="student_code"
+                placeholder="Student ID"
+                required
+            >
+
+            <input
+                type="text"
+                id="full_name"
+                placeholder="Full Name"
+                required
+            >
+
+            <input
+                type="text"
+                id="course"
+                placeholder="Course"
+                required
+            >
+
+            <button type="submit">
+                Add Student
+            </button>
+
+        </form>
+
+        <div id="message"></div>
+
+    </div>
+
+
+    <div class="box">
+
+        <h2>Students List</h2>
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>ID</th>
+                    <th>Student Code</th>
+                    <th>Name</th>
+                    <th>Course</th>
+                    <th>Samples</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+
+            </thead>
+
+            <tbody id="studentsTable">
+
+                {% for student in students %}
+
+                <tr>
+
+                    <td>{{ student.id }}</td>
+
+                    <td>{{ student.student_code }}</td>
+
+                    <td>{{ student.full_name }}</td>
+
+                    <td>{{ student.course }}</td>
+
+                    <td>{{ student.sample_count|default(0) }}</td>
+
+                    <td>
+
+                        {% if student.active %}
+
+                            <span class="active">Active</span>
+
+                        {% else %}
+
+                            <span class="inactive">Inactive</span>
+
+                        {% endif %}
+
+                    </td>
+
+                    <td>
+
+                        {% if student.active %}
+
+                        <button onclick="captureSamples({{ student.id }})">
+                            📷 Add Face
+                        </button>
+
+                        {% endif %}
+
+                    </td>
+
+                </tr>
+
+                {% else %}
+
+                <tr>
+                    <td colspan="7">
+                        No students found.
+                    </td>
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+<script>
+
+document.getElementById("studentForm").addEventListener("submit", async function(e) {
+
+    e.preventDefault();
+
+    const data = {
+        student_code: document.getElementById("student_code").value,
+        full_name: document.getElementById("full_name").value,
+        course: document.getElementById("course").value
+    };
+
+  const csrfToken = document
+    .querySelector('meta[name="csrf-token"]')
+    .getAttribute("content");
+
+const response = await fetch("/api/students", {
+
+    method: "POST",
+
+    headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrfToken
+    },
+
+    body: JSON.stringify(data)
+
+});
+
+    const result = await response.json();
+
+    const message = document.getElementById("message");
+
+    if (response.ok) {
+
+        message.style.color = "green";
+        message.innerText = "Student added successfully!";
+
+        document.getElementById("studentForm").reset();
+
+        setTimeout(() => location.reload(), 800);
+
+    } else {
+
+        message.style.color = "red";
+        message.innerText = result.error || "Something went wrong.";
+
+    }
+
+});
+
+
+async function captureSamples(studentId) {
+
+    alert(
+        "Face sample capture will use the camera.\n\n" +
+        "Student ID: " + studentId
+    );
+
+}
+
+</script>
+
+</body>
+</html>

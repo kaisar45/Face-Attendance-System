@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Reports - Attendance System</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            background: #f1f5f9;
+        }
+
+        nav {
+            background: #1e3a8a;
+            padding: 18px 30px;
+        }
+
+        nav a {
+            color: white;
+            margin-right: 20px;
+            text-decoration: none;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 20px;
+        }
+
+        .box {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,.08);
+        }
+
+        input,
+        select {
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            margin: 5px;
+        }
+
+        button,
+        .download {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 7px;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+        }
+
+        th {
+            background: #eff6ff;
+        }
+
+        #message {
+            margin-top: 15px;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<nav>
+
+    <a href="/">Dashboard</a>
+    <a href="/students">Students</a>
+    <a href="/attendance">Attendance</a>
+    <a href="/reports">Reports</a>
+
+</nav>
+
+
+<div class="container">
+
+    <h1>📊 Attendance Reports</h1>
+
+
+    <div class="box">
+
+        <h2>Filter Report</h2>
+
+        <form id="reportForm">
+
+            <label>Start Date</label>
+
+            <input
+                type="date"
+                id="start"
+            >
+
+            <label>End Date</label>
+
+            <input
+                type="date"
+                id="end"
+            >
+
+            <label>Student</label>
+
+            <select id="student_id">
+
+                <option value="">
+                    All Students
+                </option>
+
+                {% for student in students %}
+
+                <option value="{{ student.id }}">
+                    {{ student.student_code }} -
+                    {{ student.full_name }}
+                </option>
+
+                {% endfor %}
+
+            </select>
+
+            <button type="submit">
+                Generate Report
+            </button>
+
+            <a
+                id="download"
+                class="download"
+                href="/reports.csv"
+            >
+                Download CSV
+            </a>
+
+        </form>
+
+        <div id="message"></div>
+
+    </div>
+
+
+    <div class="box">
+
+        <h2>Attendance Records</h2>
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Date</th>
+                    <th>Student</th>
+                    <th>Name</th>
+                    <th>Time</th>
+                    <th>Source</th>
+                </tr>
+
+            </thead>
+
+            <tbody id="reportTable">
+
+                {% for row in rows %}
+
+                <tr>
+
+                    <td>
+                        {{ row.date|default(row.attendance_date|default("")) }}
+                    </td>
+
+                    <td>
+                        {{ row.student_code|default("") }}
+                    </td>
+
+                    <td>
+                        {{ row.full_name|default("") }}
+                    </td>
+
+                    <td>
+                        {{ row.time|default(row.attendance_time|default("")) }}
+                    </td>
+
+                    <td>
+                        {{ row.source|default("") }}
+                    </td>
+
+                </tr>
+
+                {% else %}
+
+                <tr>
+                    <td colspan="5">
+                        No attendance records found.
+                    </td>
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+<script>
+
+document.getElementById("reportForm").addEventListener(
+    "submit",
+    async function(e) {
+
+        e.preventDefault();
+
+        const start =
+            document.getElementById("start").value;
+
+        const end =
+            document.getElementById("end").value;
+
+        const student =
+            document.getElementById("student_id").value;
+
+
+        const params = new URLSearchParams();
+
+
+        if (start)
+            params.append("start", start);
+
+        if (end)
+            params.append("end", end);
+
+        if (student)
+            params.append("student_id", student);
+
+
+        const response = await fetch(
+            "/api/reports?" + params.toString()
+        );
+
+
+        const data = await response.json();
+
+
+        if (!response.ok) {
+
+            document.getElementById("message").innerText =
+                data.error || "Unable to generate report.";
+
+            return;
+
+        }
+
+
+        const table =
+            document.getElementById("reportTable");
+
+        table.innerHTML = "";
+
+
+        if (!data.rows || data.rows.length === 0) {
+
+            table.innerHTML = `
+                <tr>
+                    <td colspan="5">
+                        No records found.
+                    </td>
+                </tr>
+            `;
+
+        } else {
+
+            data.rows.forEach(row => {
+
+                table.innerHTML += `
+                    <tr>
+
+                        <td>
+                            ${row.date || row.attendance_date || ""}
+                        </td>
+
+                        <td>
+                            ${row.student_code || ""}
+                        </td>
+
+                        <td>
+                            ${row.full_name || ""}
+                        </td>
+
+                        <td>
+                            ${row.time || row.attendance_time || ""}
+                        </td>
+
+                        <td>
+                            ${row.source || ""}
+                        </td>
+
+                    </tr>
+                `;
+
+            });
+
+        }
+
+
+        const download =
+            document.getElementById("download");
+
+        download.href =
+            "/reports.csv?" + params.toString();
+
+        document.getElementById("message").innerText =
+            "Report generated successfully.";
+
+    }
+
+);
+
+</script>
+
+</body>
+
+</html>
